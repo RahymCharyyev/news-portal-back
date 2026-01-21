@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { db } from '../config/database';
-import { createNewsSchema, updateNewsSchema, newsQuerySchema } from '../types/schemas';
+import { createNewsSchema, updateNewsSchema, newsQuerySchema, searchSchema, languageSchema } from '../types/schemas';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { newsService } from '../services/news.service';
+import { DEFAULT_PAGE, DEFAULT_LIMIT } from '../utils/constants';
 
 const router = Router();
 
@@ -11,270 +12,63 @@ router.get('/', async (req, res, next) => {
     // Валидация query параметров
     const queryParams = newsQuerySchema.parse(req.query);
     
-    const page = queryParams.page || 1;
-    const limit = queryParams.limit || 10;
-    const categoryId = queryParams.categoryId;
-
-    // Параметры сортировки
-    const sortBy = queryParams.sortBy || 'publishedAt';
-    const sortOrder = queryParams.sortOrder || 'desc';
-
-    // Строим запрос с JOIN для получения связанных данных
-    let query = db
-      .selectFrom('news')
-      .innerJoin('categories', 'news.categoryId', 'categories.id')
-      .innerJoin('users', 'news.authorId', 'users.id')
-      .select([
-        'news.id',
-        'news.title',
-        'news.content',
-        'news.publishedAt',
-        'news.createdAt',
-        'news.updatedAt',
-        'categories.id as categoryId',
-        'categories.name as categoryName',
-        'categories.slug as categorySlug',
-        'users.id as authorId',
-        'users.name as authorName',
-        'users.email as authorEmail',
-      ])
-      .where('news.publishedAt', 'is not', null); // Только опубликованные новости
-
-    // Фильтр по категории, если указан
-    if (categoryId) {
-      query = query.where('news.categoryId', '=', categoryId);
-    }
-
-    // Фильтр по дате (опционально)
-    if (queryParams.startDate) {
-      query = query.where('news.publishedAt', '>=', new Date(queryParams.startDate));
-    }
-
-    if (queryParams.endDate) {
-      query = query.where('news.publishedAt', '<=', new Date(queryParams.endDate));
-    }
-
-    // Сортировка
-    const validSortFields = ['publishedAt', 'createdAt', 'title'];
-    const sortField = validSortFields.includes(sortBy) ? sortBy : 'publishedAt';
-    const order = sortOrder.toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const result = await newsService.getList(queryParams);
     
-    query = query.orderBy(`news.${sortField}` as any, order);
-
-    // Получаем новости с пагинацией
-    const news = await query
-      .limit(limit)
-      .offset((page - 1) * limit)
-      .execute();
-
-    // Получаем общее количество для пагинации
-    let totalQuery = db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('news.publishedAt', 'is not', null);
-
-    if (categoryId) {
-      totalQuery = totalQuery.where('news.categoryId', '=', categoryId);
-    }
-
-    if (queryParams.startDate) {
-      totalQuery = totalQuery.where('news.publishedAt', '>=', new Date(queryParams.startDate));
-    }
-
-    if (queryParams.endDate) {
-      totalQuery = totalQuery.where('news.publishedAt', '<=', new Date(queryParams.endDate));
-    }
-
-    const totalResult = await totalQuery.executeTakeFirst();
-    const total = Number(totalResult?.total || 0);
-
-    res.json({
-      news,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-      sort: {
-        by: sortField,
-        order: order,
-      },
-    });
+    res.json(result);
   } catch (error) {
     next(error);
   }
 });
 
 
-// GET /api/news/category/:slug - Получить новости по категории
+// GET /api/news/category/:slug?lang=ru|tm - Получить новости по категории
 router.get('/category/:slug', async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page = parseInt(req.query.page as string) || DEFAULT_PAGE;
+    const limit = parseInt(req.query.limit as string) || DEFAULT_LIMIT;
+    const lang = languageSchema.parse(req.query.lang || 'ru');
 
-    // Сначала находим категорию по slug
-    const category = await db
-      .selectFrom('categories')
-      .selectAll()
-      .where('slug', '=', req.params.slug)
-      .executeTakeFirst();
-
-    if (!category) {
-      return res.status(404).json({ error: 'Категория не найдена' });
-    }
-
-    // Получаем новости этой категории
-    const news = await db
-      .selectFrom('news')
-      .innerJoin('categories', 'news.categoryId', 'categories.id')
-      .innerJoin('users', 'news.authorId', 'users.id')
-      .select([
-        'news.id',
-        'news.title',
-        'news.content',
-        'news.publishedAt',
-        'news.createdAt',
-        'categories.id as categoryId',
-        'categories.name as categoryName',
-        'categories.slug as categorySlug',
-        'users.id as authorId',
-        'users.name as authorName',
-      ])
-      .where('news.categoryId', '=', category.id)
-      .where('news.publishedAt', 'is not', null)
-      .orderBy('news.publishedAt', 'desc')
-      .limit(limit)
-      .offset((page - 1) * limit)
-      .execute();
-
-    // Получаем общее количество
-    const totalResult = await db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('categoryId', '=', category.id)
-      .where('publishedAt', 'is not', null)
-      .executeTakeFirst();
-
-    const total = Number(totalResult?.total || 0);
-
-    res.json({
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-      },
-      news,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
+    const result = await newsService.getByCategorySlug(req.params.slug, page, limit, lang);
+    
+    res.json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === 'Категория не найдена') {
+      return res.status(404).json({ error: error.message });
+    }
     next(error);
   }
 });
 
-// GET /api/news/search?q=запрос - Поиск новостей
+// GET /api/news/search?q=запрос&lang=ru|tm - Поиск новостей
 router.get('/search', async (req, res, next) => {
   try {
-    const searchQuery = req.query.q as string;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const validatedQuery = searchSchema.parse(req.query);
+    const page = validatedQuery.page || DEFAULT_PAGE;
+    const limit = validatedQuery.limit || DEFAULT_LIMIT;
+    const lang = validatedQuery.lang || 'ru';
 
-    if (!searchQuery || searchQuery.trim().length === 0) {
-      return res.status(400).json({ error: 'Поисковый запрос обязателен' });
-    }
-
-    // Поиск по заголовку и содержанию (используем ILIKE для регистронезависимого поиска)
-    let query = db
-      .selectFrom('news')
-      .innerJoin('categories', 'news.categoryId', 'categories.id')
-      .innerJoin('users', 'news.authorId', 'users.id')
-      .select([
-        'news.id',
-        'news.title',
-        'news.content',
-        'news.publishedAt',
-        'news.createdAt',
-        'categories.id as categoryId',
-        'categories.name as categoryName',
-        'categories.slug as categorySlug',
-        'users.id as authorId',
-        'users.name as authorName',
-      ])
-      .where('news.publishedAt', 'is not', null)
-      .where((eb) =>
-        eb.or([
-          eb('news.title', 'ilike', `%${searchQuery}%`),
-          eb('news.content', 'ilike', `%${searchQuery}%`),
-        ])
-      )
-      .orderBy('news.publishedAt', 'desc');
-
-    // Получаем результаты с пагинацией
-    const news = await query
-      .limit(limit)
-      .offset((page - 1) * limit)
-      .execute();
-
-    // Получаем общее количество
-    const totalQuery = db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('publishedAt', 'is not', null)
-      .where((eb) =>
-        eb.or([
-          eb('news.title', 'ilike', `%${searchQuery}%`),
-          eb('news.content', 'ilike', `%${searchQuery}%`),
-        ])
-      );
-
-    const totalResult = await totalQuery.executeTakeFirst();
-    const total = Number(totalResult?.total || 0);
-
-    res.json({
-      query: searchQuery,
-      news,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
+    const result = await newsService.search(validatedQuery.q, page, limit, lang);
+    
+    res.json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === 'Поисковый запрос обязателен') {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });
 
-// GET /api/news/:id - Получить новость по ID
+// GET /api/news/:id?lang=ru|tm - Получить новость по ID
 router.get('/:id', async (req, res, next) => {
   try {
     const newsId = parseInt(req.params.id);
 
-    const news = await db
-      .selectFrom('news')
-      .innerJoin('categories', 'news.categoryId', 'categories.id')
-      .innerJoin('users', 'news.authorId', 'users.id')
-      .select([
-        'news.id',
-        'news.title',
-        'news.content',
-        'news.publishedAt',
-        'news.createdAt',
-        'news.updatedAt',
-        'categories.id as categoryId',
-        'categories.name as categoryName',
-        'categories.slug as categorySlug',
-        'users.id as authorId',
-        'users.name as authorName',
-        'users.email as authorEmail',
-      ])
-      .where('news.id', '=', newsId)
-      .executeTakeFirst();
+    if (isNaN(newsId) || newsId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID' });
+    }
+
+    const lang = languageSchema.parse(req.query.lang || 'ru');
+    const news = await newsService.getById(newsId, lang);
 
     if (!news) {
       return res.status(404).json({ error: 'Новость не найдена' });
@@ -291,20 +85,14 @@ router.post('/', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const validatedData = createNewsSchema.parse(req.body);
 
-    const news = await db
-      .insertInto('news')
-      .values({
-        title: validatedData.title,
-        content: validatedData.content,
-        categoryId: validatedData.categoryId,
-        authorId: req.userId!,
-        publishedAt: new Date(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Пользователь не авторизован' });
+    }
+
+    const news = await newsService.create(validatedData, req.userId);
 
     res.status(201).json({ news });
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 });
@@ -314,40 +102,29 @@ router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const newsId = parseInt(req.params.id);
 
-    // Проверяем, существует ли новость и принадлежит ли она пользователю
-    const existingNews = await db
-      .selectFrom('news')
-      .selectAll()
-      .where('id', '=', newsId)
-      .executeTakeFirst();
-
-    if (!existingNews) {
-      return res.status(404).json({ error: 'Новость не найдена' });
+    if (isNaN(newsId) || newsId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID' });
     }
 
-    if (existingNews.authorId !== req.userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой новости' });
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Пользователь не авторизован' });
     }
 
     // Валидация через Zod
     const validatedData = updateNewsSchema.parse(req.body);
 
-    // Собираем данные для обновления
-    const updateData: any = {};
-    if (validatedData.title) updateData.title = validatedData.title;
-    if (validatedData.content) updateData.content = validatedData.content;
-    if (validatedData.categoryId) updateData.categoryId = validatedData.categoryId;
-    updateData.updatedAt = new Date();
-
-    const news = await db
-      .updateTable('news')
-      .set(updateData)
-      .where('id', '=', newsId)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const news = await newsService.update(newsId, validatedData, req.userId);
 
     res.json({ news });
-  } catch (error: any) {
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Новость не найдена') {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message === 'Нет доступа к этой новости') {
+        return res.status(403).json({ error: error.message });
+      }
+    }
     next(error);
   }
 });
@@ -357,28 +134,26 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const newsId = parseInt(req.params.id);
 
-    // Проверяем, существует ли новость и принадлежит ли она пользователю
-    const existingNews = await db
-      .selectFrom('news')
-      .selectAll()
-      .where('id', '=', newsId)
-      .executeTakeFirst();
-
-    if (!existingNews) {
-      return res.status(404).json({ error: 'Новость не найдена' });
+    if (isNaN(newsId) || newsId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID' });
     }
 
-    if (existingNews.authorId !== req.userId) {
-      return res.status(403).json({ error: 'Нет доступа к этой новости' });
+    if (!req.userId) {
+      return res.status(401).json({ error: 'Пользователь не авторизован' });
     }
 
-    await db
-      .deleteFrom('news')
-      .where('id', '=', newsId)
-      .execute();
+    await newsService.delete(newsId, req.userId);
 
     res.json({ message: 'Новость успешно удалена' });
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Новость не найдена') {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message === 'Нет доступа к этой новости') {
+        return res.status(403).json({ error: error.message });
+      }
+    }
     next(error);
   }
 });

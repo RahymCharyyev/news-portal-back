@@ -1,9 +1,7 @@
 import { Router } from 'express';
-import jwt, { SignOptions } from 'jsonwebtoken';
-import { db } from '../config/database';
-import { hashPassword, comparePassword } from '../utils/password';
 import { loginSchema, registerSchema } from '../types/schemas';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { authService } from '../services/auth.service';
 
 const router = Router();
 
@@ -13,53 +11,16 @@ router.post('/register', async (req, res, next) => {
     // Валидация данных
     const validatedData = registerSchema.parse(req.body);
 
-    // Проверяем, не существует ли уже пользователь с таким email
-    const existingUser = await db
-      .selectFrom('users')
-      .select(['id'])
-      .where('email', '=', validatedData.email)
-      .executeTakeFirst();
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'Пользователь с таким email уже существует' });
-    }
-
-    // Хешируем пароль
-    const hashedPassword = await hashPassword(validatedData.password);
-
-    // Создаем пользователя
-    const user = await db
-      .insertInto('users')
-      .values({
-        email: validatedData.email,
-        password: hashedPassword,
-        name: validatedData.name,
-      })
-      .returning(['id', 'email', 'name', 'createdAt'])
-      .executeTakeFirstOrThrow();
-
-    // Проверяем наличие JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET не настроен в переменных окружения');
-    }
-
-    // Создаем JWT токен
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as SignOptions
-    );
+    // Регистрация через сервис
+    const result = await authService.register(validatedData);
 
     // Возвращаем пользователя и токен
-    res.status(201).json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-      token,
-    });
-  } catch (error: any) {
+    res.status(201).json(result);
+  } catch (error) {
+    // Обрабатываем ошибки из сервиса
+    if (error instanceof Error && error.message === 'Пользователь с таким email уже существует') {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -70,49 +31,16 @@ router.post('/login', async (req, res, next) => {
     // Валидация данных
     const validatedData = loginSchema.parse(req.body);
 
-    // Ищем пользователя по email
-    const user = await db
-      .selectFrom('users')
-      .selectAll()
-      .where('email', '=', validatedData.email)
-      .executeTakeFirst();
+    // Вход через сервис
+    const result = await authService.login(validatedData);
 
-    if (!user) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
+    // Возвращаем пользователя и токен
+    res.json(result);
+  } catch (error) {
+    // Обрабатываем ошибки из сервиса
+    if (error instanceof Error && error.message === 'Неверный email или пароль') {
+      return res.status(401).json({ error: error.message });
     }
-
-    // Сравниваем пароль с хешем
-    const isPasswordValid = await comparePassword(
-      validatedData.password,
-      user.password
-    );
-
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Неверный email или пароль' });
-    }
-
-    // Проверяем наличие JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET не настроен в переменных окружения');
-    }
-
-    // Создаем JWT токен
-    const token = jwt.sign(
-      { userId: user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as SignOptions
-    );
-
-    // Возвращаем пользователя (БЕЗ пароля!) и токен
-    res.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-      },
-      token,
-    });
-  } catch (error: any) {
     next(error);
   }
 });

@@ -9,6 +9,7 @@
     "db:down": "docker-compose down",
     "db:logs": "docker-compose logs -f postgres",
     "migrate": "tsx src/db/migrations/migrate.ts",
+    "migrate:multilang": "tsx src/db/migrations/add_multilang_and_image.ts",
     "seed": "tsx src/db/seeds/seed.ts"
   },
   "dependencies": {

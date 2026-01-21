@@ -13,9 +13,11 @@ export interface User {
 // Таблица категорий
 export interface Category {
   id: ColumnType<number, number | undefined, never>;
-  name: string;
+  nameRu: string;
+  nameTm: string;
   slug: string;
-  description: string | null;
+  descriptionRu: string | null;
+  descriptionTm: string | null;
   createdAt: ColumnType<Date, string | undefined, string>;
   updatedAt: ColumnType<Date, string | undefined, string>;
 }
@@ -23,8 +25,12 @@ export interface Category {
 // Таблица новостей
 export interface News {
   id: ColumnType<number, number | undefined, never>;
-  title: string;
-  content: string;
+  titleRu: string;
+  titleTm: string;
+  contentRu: string;
+  contentTm: string;
+  imageUrl: string | null;
+  isFlash: boolean;
   categoryId: number;
   authorId: number;
   publishedAt: Date | null;

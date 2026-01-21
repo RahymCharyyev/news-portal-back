@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { db } from '../config/database';
+import { verifyToken } from '../utils/jwt';
+import { authService } from '../services/auth.service';
 
 // Расширяем тип Request, чтобы добавить userId
 export interface AuthRequest extends Request {
@@ -34,17 +34,10 @@ export async function authenticate(
     const token = authHeader.substring(7);
 
     // Проверяем токен
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET!
-    ) as { userId: number };
+    const decoded = verifyToken(token);
 
     // Проверяем, существует ли пользователь
-    const user = await db
-      .selectFrom('users')
-      .select(['id', 'email', 'name'])
-      .where('id', '=', decoded.userId)
-      .executeTakeFirst();
+    const user = await authService.getUserById(decoded.userId);
 
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });

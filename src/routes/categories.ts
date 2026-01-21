@@ -1,33 +1,26 @@
 import { Router } from 'express';
-import { db } from '../config/database';
-import { createCategorySchema, updateCategorySchema } from '../types/schemas';
+import { createCategorySchema, updateCategorySchema, languageSchema } from '../types/schemas';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { categoryService } from '../services/category.service';
 
 const router = Router();
 
-// GET /api/categories - Получить все категории
+// GET /api/categories?lang=ru|tm - Получить все категории
 router.get('/', async (req, res, next) => {
   try {
-    const categories = await db
-      .selectFrom('categories')
-      .selectAll()
-      .orderBy('name', 'asc')
-      .execute();
-    
+    const lang = languageSchema.parse(req.query.lang || 'ru');
+    const categories = await categoryService.getAll(lang);
     res.json({ categories });
   } catch (error) {
     next(error);
   }
 });
 
-// GET /api/categories/:slug - Получить категорию по slug
+// GET /api/categories/:slug?lang=ru|tm - Получить категорию по slug
 router.get('/:slug', async (req, res, next) => {
   try {
-    const category = await db
-      .selectFrom('categories')
-      .selectAll()
-      .where('slug', '=', req.params.slug)
-      .executeTakeFirst();
+    const lang = languageSchema.parse(req.query.lang || 'ru');
+    const category = await categoryService.getBySlug(req.params.slug, lang);
     
     if (!category) {
       return res.status(404).json({ error: 'Категория не найдена' });
@@ -45,18 +38,10 @@ router.post('/', authenticate, async (req: AuthRequest, res, next) => {
     // Валидация через Zod
     const validatedData = createCategorySchema.parse(req.body);
     
-    const category = await db
-      .insertInto('categories')
-      .values({
-        name: validatedData.name,
-        slug: validatedData.slug,
-        description: validatedData.description || null,
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const category = await categoryService.create(validatedData);
     
     res.status(201).json({ category });
-  } catch (error: any) {
+  } catch (error) {
     next(error);
   }
 });
@@ -66,36 +51,20 @@ router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const categoryId = parseInt(req.params.id);
     
-    // Проверяем, существует ли категория
-    const existingCategory = await db
-      .selectFrom('categories')
-      .selectAll()
-      .where('id', '=', categoryId)
-      .executeTakeFirst();
-    
-    if (!existingCategory) {
-      return res.status(404).json({ error: 'Категория не найдена' });
+    if (isNaN(categoryId) || categoryId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID' });
     }
     
     // Валидация через Zod
     const validatedData = updateCategorySchema.parse(req.body);
     
-    // Собираем данные для обновления
-    const updateData: any = {};
-    if (validatedData.name) updateData.name = validatedData.name;
-    if (validatedData.slug) updateData.slug = validatedData.slug;
-    if (validatedData.description !== undefined) updateData.description = validatedData.description;
-    updateData.updatedAt = new Date();
-    
-    const category = await db
-      .updateTable('categories')
-      .set(updateData)
-      .where('id', '=', categoryId)
-      .returningAll()
-      .executeTakeFirstOrThrow();
+    const category = await categoryService.update(categoryId, validatedData);
     
     res.json({ category });
-  } catch (error: any) {
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Категория не найдена') {
+      return res.status(404).json({ error: error.message });
+    }
     next(error);
   }
 });
@@ -105,25 +74,17 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
     const categoryId = parseInt(req.params.id);
     
-    // Проверяем, существует ли категория
-    const existingCategory = await db
-      .selectFrom('categories')
-      .selectAll()
-      .where('id', '=', categoryId)
-      .executeTakeFirst();
-    
-    if (!existingCategory) {
-      return res.status(404).json({ error: 'Категория не найдена' });
+    if (isNaN(categoryId) || categoryId <= 0) {
+      return res.status(400).json({ error: 'Некорректный ID' });
     }
     
-    // Удаляем категорию (благодаря ON DELETE CASCADE удалятся и связанные новости)
-    await db
-      .deleteFrom('categories')
-      .where('id', '=', categoryId)
-      .execute();
+    await categoryService.delete(categoryId);
     
     res.json({ message: 'Категория успешно удалена' });
   } catch (error) {
+    if (error instanceof Error && error.message === 'Категория не найдена') {
+      return res.status(404).json({ error: error.message });
+    }
     next(error);
   }
 });
