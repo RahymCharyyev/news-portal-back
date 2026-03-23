@@ -1,8 +1,6 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import { db } from '../../config/database';
 import { hashPassword } from '../../utils/password';
-
-dotenv.config();
 
 async function seed() {
   try {

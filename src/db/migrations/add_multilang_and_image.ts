@@ -1,9 +1,6 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import { db } from '../../config/database';
 import { sql } from 'kysely';
-
-// ⬇️ ВАЖНО: Загружаем переменные из .env ПЕРЕД использованием db
-dotenv.config();
 
 async function migrate() {
   try {
