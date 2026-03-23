@@ -1,27 +1,34 @@
+import 'dotenv/config'; // Загружаем .env первым, до остальных импортов
+import path from 'path';
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import categoriesRoutes from './routes/categories';
 import authRoutes from './routes/auth';
 import newsRoutes from './routes/news';
-import { errorHandler } from './middleware/errorHandler'; // ⬅️ Добавьте
+import uploadRoutes from './routes/upload';
+import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
-
-// Загружаем переменные из .env
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(requestLogger); // ⬅️ Логирование должно быть после express.json()
+app.use(requestLogger);
 
-// Подключаем роуты
+app.use('/uploads', express.static(uploadsDir));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // Роут: Проверка здоровья сервера
 app.get('/health', (req, res) => {
@@ -59,4 +66,5 @@ app.listen(PORT, () => {
   console.log(`   - POST /api/news (authenticated)`);
   console.log(`   - PUT  /api/news/:id (authenticated)`);
   console.log(`   - DELETE /api/news/:id (authenticated)`);
+  console.log(`   - POST /api/upload/image (authenticated)`);
 });
