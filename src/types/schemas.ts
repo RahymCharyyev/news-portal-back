@@ -52,6 +52,22 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Пароль обязателен'),
 });
 
+export const userRoleSchema = z.enum(['admin', 'user']);
+
+export const createUserSchema = z.object({
+  email: z.string().email('Некорректный email'),
+  password: z.string().min(6, 'Пароль должен быть минимум 6 символов'),
+  name: z.string().min(2, 'Имя должно быть минимум 2 символов'),
+  role: userRoleSchema.default('user'),
+});
+
+export const updateUserSchema = z.object({
+  email: z.string().email('Некорректный email').optional(),
+  password: z.string().min(6, 'Пароль должен быть минимум 6 символов').optional(),
+  name: z.string().min(2, 'Имя должно быть минимум 2 символов').optional(),
+  role: userRoleSchema.optional(),
+});
+
 // Схема для поиска
 export const searchSchema = z.object({
   q: z.string().min(1, 'Поисковый запрос обязателен'),
@@ -80,5 +96,8 @@ export type CreateNewsInput = z.infer<typeof createNewsSchema>;
 export type UpdateNewsInput = z.infer<typeof updateNewsSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UserRoleInput = z.infer<typeof userRoleSchema>;
 export type SearchInput = z.infer<typeof searchSchema>;
 export type NewsQueryInput = z.infer<typeof newsQuerySchema>;

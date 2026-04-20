@@ -7,11 +7,14 @@ import categoriesRoutes from './routes/categories';
 import authRoutes from './routes/auth';
 import newsRoutes from './routes/news';
 import uploadRoutes from './routes/upload';
+import usersRoutes from './routes/users';
 import { errorHandler } from './middleware/errorHandler';
 import { requestLogger } from './middleware/logger';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+app.set('trust proxy', true);
 
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -29,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/users', usersRoutes);
 
 // Роут: Проверка здоровья сервера
 app.get('/health', (req, res) => {
@@ -67,4 +71,9 @@ app.listen(PORT, () => {
   console.log(`   - PUT  /api/news/:id (authenticated)`);
   console.log(`   - DELETE /api/news/:id (authenticated)`);
   console.log(`   - POST /api/upload/image (authenticated)`);
+  console.log(`   - GET  /api/users (admin only)`);
+  console.log(`   - GET  /api/users/:id (admin only)`);
+  console.log(`   - POST /api/users (admin only)`);
+  console.log(`   - PUT  /api/users/:id (admin only)`);
+  console.log(`   - DELETE /api/users/:id (admin only)`);
 });

@@ -7,6 +7,7 @@ export interface UserResponse {
   id: number;
   email: string;
   name: string;
+  role: 'admin' | 'user';
 }
 
 export interface AuthResponse {
@@ -43,8 +44,9 @@ export class AuthService {
         email: data.email,
         password: hashedPassword,
         name: data.name,
+        role: 'user',
       })
-      .returning(['id', 'email', 'name', 'createdAt'])
+      .returning(['id', 'email', 'name', 'role', 'createdAt'])
       .executeTakeFirstOrThrow();
 
     // Создаем JWT токен
@@ -55,6 +57,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
       },
       token,
     };
@@ -90,6 +93,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role as 'admin' | 'user',
       },
       token,
     };
@@ -101,7 +105,7 @@ export class AuthService {
   async getUserById(userId: number): Promise<UserResponse | null> {
     const user = await db
       .selectFrom('users')
-      .select(['id', 'email', 'name'])
+      .select(['id', 'email', 'name', 'role'])
       .where('id', '=', userId)
       .executeTakeFirst();
 
@@ -113,6 +117,7 @@ export class AuthService {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role as 'admin' | 'user',
     };
   }
 }

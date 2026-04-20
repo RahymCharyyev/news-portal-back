@@ -57,8 +57,18 @@ router.post(
     if (!file) {
       return res.status(400).json({ error: 'Файл не выбран' });
     }
-    const baseUrl = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
-    const url = `${baseUrl}/uploads/${file.filename}`;
+    const envBaseUrl = process.env.BASE_URL?.trim().replace(/\/$/, '');
+    const forwardedProto = (req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim();
+    const forwardedHost = (req.headers['x-forwarded-host'] as string | undefined)?.split(',')[0]?.trim();
+    const forwardedPrefix = (req.headers['x-forwarded-prefix'] as string | undefined)?.trim().replace(/\/$/, '');
+    const proto = forwardedProto || req.protocol;
+    const host = forwardedHost || req.get('host');
+    const prefix = forwardedPrefix || '';
+    const derivedBase = host ? `${proto}://${host}${prefix}` : '';
+    const baseUrl = envBaseUrl || derivedBase;
+    const url = baseUrl
+      ? `${baseUrl}/uploads/${file.filename}`
+      : `/uploads/${file.filename}`;
     res.status(201).json({ url });
   }
 );

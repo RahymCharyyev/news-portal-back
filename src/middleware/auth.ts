@@ -9,6 +9,7 @@ export interface AuthRequest extends Request {
     id: number;
     email: string;
     name: string;
+    role: 'admin' | 'user';
   };
 }
 
@@ -52,4 +53,15 @@ export async function authenticate(
   } catch (error) {
     return res.status(401).json({ error: 'Неверный токен' });
   }
+}
+
+export function requireAdmin(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Недостаточно прав' });
+  }
+  next();
 }

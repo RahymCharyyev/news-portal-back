@@ -6,6 +6,7 @@ export interface User {
   email: string;
   password: string;
   name: string;
+  role: 'admin' | 'user';
   createdAt: ColumnType<Date, string | undefined, string>;
   updatedAt: ColumnType<Date, string | undefined, string>;
 }
