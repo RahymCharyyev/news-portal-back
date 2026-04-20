@@ -66,9 +66,8 @@ router.post(
     const prefix = forwardedPrefix || '';
     const derivedBase = host ? `${proto}://${host}${prefix}` : '';
     const baseUrl = envBaseUrl || derivedBase;
-    const url = baseUrl
-      ? `${baseUrl}/uploads/${file.filename}`
-      : `/uploads/${file.filename}`;
+    const uploadsPath = `/news/uploads/${file.filename}`;
+    const url = baseUrl ? `${baseUrl}${uploadsPath}` : uploadsPath;
     res.status(201).json({ url });
   }
 );

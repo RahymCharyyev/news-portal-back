@@ -27,6 +27,7 @@ app.use(express.json());
 app.use(requestLogger);
 
 app.use('/uploads', express.static(uploadsDir));
+app.use('/news/uploads', express.static(uploadsDir));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/categories', categoriesRoutes);
