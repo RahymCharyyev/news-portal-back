@@ -1,16 +1,18 @@
 import { z } from 'zod';
 
 // Языки
-export const languageSchema = z.enum(['ru', 'tm']);
+export const languageSchema = z.enum(['ru', 'tm', 'en']);
 export type Language = z.infer<typeof languageSchema>;
 
 // Схема для создания категории
 export const createCategorySchema = z.object({
   nameRu: z.string().min(1, 'Название на русском обязательно').max(255, 'Название слишком длинное'),
   nameTm: z.string().min(1, 'Название на туркменском обязательно').max(255, 'Название слишком длинное'),
+  nameEn: z.string().min(1, 'Название на английском обязательно').max(255, 'Название слишком длинное'),
   slug: z.string().min(1, 'Slug обязателен').max(255, 'Slug слишком длинный'),
   descriptionRu: z.string().optional(),
   descriptionTm: z.string().optional(),
+  descriptionEn: z.string().optional(),
 });
 
 // Схема для обновления категории (все поля опциональны)
@@ -20,8 +22,10 @@ export const updateCategorySchema = createCategorySchema.partial();
 export const createNewsSchema = z.object({
   titleRu: z.string().min(1, 'Заголовок на русском обязателен').max(500, 'Заголовок слишком длинный'),
   titleTm: z.string().min(1, 'Заголовок на туркменском обязателен').max(500, 'Заголовок слишком длинный'),
+  titleEn: z.string().min(1, 'Заголовок на английском обязателен').max(500, 'Заголовок слишком длинный'),
   contentRu: z.string().min(1, 'Содержание на русском обязательно').max(500000),
   contentTm: z.string().min(1, 'Содержание на туркменском обязательно').max(500000),
+  contentEn: z.string().min(1, 'Содержание на английском обязательно').max(500000),
   imageUrl: z.string().max(2000).optional().nullable(),
   isFlash: z.boolean().optional().default(false),
   categoryId: z.number().int().positive('ID категории должен быть положительным числом'),
@@ -32,8 +36,10 @@ export const createNewsSchema = z.object({
 export const updateNewsSchema = z.object({
   titleRu: z.string().min(1, 'Заголовок на русском обязателен').max(500, 'Заголовок слишком длинный').optional(),
   titleTm: z.string().min(1, 'Заголовок на туркменском обязателен').max(500, 'Заголовок слишком длинный').optional(),
+  titleEn: z.string().min(1, 'Заголовок на английском обязателен').max(500, 'Заголовок слишком длинный').optional(),
   contentRu: z.string().min(1).max(500000).optional(),
   contentTm: z.string().min(1).max(500000).optional(),
+  contentEn: z.string().min(1).max(500000).optional(),
   imageUrl: z.string().max(2000).optional().nullable(),
   isFlash: z.boolean().optional(),
   categoryId: z.number().int().positive('ID категории должен быть положительным числом').optional(),
@@ -81,12 +87,15 @@ export const newsQuerySchema = z.object({
   page: z.string().optional().transform((val) => (val ? parseInt(val) : 1)),
   limit: z.string().optional().transform((val) => (val ? parseInt(val) : 10)),
   categoryId: z.string().optional().transform((val) => (val ? parseInt(val) : undefined)),
-  sortBy: z.enum(['publishedAt', 'createdAt', 'titleRu', 'titleTm']).optional(),
+  sortBy: z.enum(['publishedAt', 'createdAt', 'titleRu', 'titleTm', 'titleEn']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
   lang: languageSchema.optional().default('ru'),
-  isFlash: z.string().optional().transform((val) => val === 'true'),
+  isFlash: z
+    .string()
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === 'true')),
 });
 
 // TypeScript типы из схем

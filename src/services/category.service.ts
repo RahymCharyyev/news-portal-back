@@ -14,9 +14,11 @@ export interface CategoryFullResponse {
   id: number;
   nameRu: string;
   nameTm: string;
+  nameEn: string;
   slug: string;
   descriptionRu: string | null;
   descriptionTm: string | null;
+  descriptionEn: string | null;
   createdAt: Date;
   updatedAt: Date | null;
 }
@@ -29,11 +31,21 @@ export class CategoryService {
    * Преобразует полную категорию в ответ с учетом языка
    */
   private mapToLocalized(category: CategoryFullResponse, lang: Language = 'ru'): CategoryResponse {
+    const nameByLang: Record<Language, string> = {
+      ru: category.nameRu,
+      tm: category.nameTm,
+      en: category.nameEn,
+    };
+    const descriptionByLang: Record<Language, string | null> = {
+      ru: category.descriptionRu,
+      tm: category.descriptionTm,
+      en: category.descriptionEn,
+    };
     return {
       id: category.id,
-      name: lang === 'ru' ? category.nameRu : category.nameTm,
+      name: nameByLang[lang],
       slug: category.slug,
-      description: lang === 'ru' ? category.descriptionRu : category.descriptionTm,
+      description: descriptionByLang[lang],
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
     };
@@ -43,10 +55,11 @@ export class CategoryService {
    * Получить все категории
    */
   async getAll(lang: Language = 'ru'): Promise<CategoryResponse[]> {
+    const orderColumn = lang === 'ru' ? 'nameRu' : lang === 'tm' ? 'nameTm' : 'nameEn';
     const categories = await db
       .selectFrom('categories')
       .selectAll()
-      .orderBy(lang === 'ru' ? 'nameRu' : 'nameTm', 'asc')
+      .orderBy(orderColumn, 'asc')
       .execute();
 
     return categories.map(cat => this.mapToLocalized(cat as CategoryFullResponse, lang));
@@ -100,9 +113,11 @@ export class CategoryService {
       .values({
         nameRu: data.nameRu,
         nameTm: data.nameTm,
+        nameEn: data.nameEn,
         slug: data.slug,
         descriptionRu: data.descriptionRu || null,
         descriptionTm: data.descriptionTm || null,
+        descriptionEn: data.descriptionEn || null,
       })
       .returningAll()
       .executeTakeFirstOrThrow();
@@ -122,9 +137,11 @@ export class CategoryService {
     const updateData: {
       nameRu?: string;
       nameTm?: string;
+      nameEn?: string;
       slug?: string;
       descriptionRu?: string | null;
       descriptionTm?: string | null;
+      descriptionEn?: string | null;
       updatedAt: Date;
     } = {
       updatedAt: new Date(),
@@ -132,9 +149,11 @@ export class CategoryService {
     
     if (data.nameRu) updateData.nameRu = data.nameRu;
     if (data.nameTm) updateData.nameTm = data.nameTm;
+    if (data.nameEn) updateData.nameEn = data.nameEn;
     if (data.slug) updateData.slug = data.slug;
     if (data.descriptionRu !== undefined) updateData.descriptionRu = data.descriptionRu;
     if (data.descriptionTm !== undefined) updateData.descriptionTm = data.descriptionTm;
+    if (data.descriptionEn !== undefined) updateData.descriptionEn = data.descriptionEn;
 
     return await db
       .updateTable('categories')

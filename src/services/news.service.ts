@@ -27,8 +27,10 @@ interface NewsRawData {
   id: number;
   titleRu: string;
   titleTm: string;
+  titleEn: string;
   contentRu: string;
   contentTm: string;
+  contentEn: string;
   imageUrl: string | null;
   isFlash: boolean;
   publishedAt: Date | null;
@@ -37,6 +39,7 @@ interface NewsRawData {
   categoryId: number;
   categoryNameRu: string;
   categoryNameTm: string;
+  categoryNameEn: string;
   categorySlug: string;
   authorId: number;
   authorName: string;
@@ -73,17 +76,32 @@ export class NewsService {
    * Преобразует сырые данные новости в локализованный формат
    */
   private mapToLocalized(news: NewsRawData, lang: Language = 'ru'): NewsListItem {
+    const titleByLang: Record<Language, string> = {
+      ru: news.titleRu,
+      tm: news.titleTm,
+      en: news.titleEn,
+    };
+    const contentByLang: Record<Language, string> = {
+      ru: news.contentRu,
+      tm: news.contentTm,
+      en: news.contentEn,
+    };
+    const categoryNameByLang: Record<Language, string> = {
+      ru: news.categoryNameRu,
+      tm: news.categoryNameTm,
+      en: news.categoryNameEn,
+    };
     return {
       id: news.id,
-      title: lang === 'ru' ? news.titleRu : news.titleTm,
-      content: lang === 'ru' ? news.contentRu : news.contentTm,
+      title: titleByLang[lang],
+      content: contentByLang[lang],
       imageUrl: news.imageUrl,
       isFlash: news.isFlash,
       publishedAt: news.publishedAt,
       createdAt: news.createdAt,
       updatedAt: news.updatedAt,
       categoryId: news.categoryId,
-      categoryName: lang === 'ru' ? news.categoryNameRu : news.categoryNameTm,
+      categoryName: categoryNameByLang[lang],
       categorySlug: news.categorySlug,
       authorId: news.authorId,
       authorName: news.authorName,
@@ -103,8 +121,10 @@ export class NewsService {
         'news.id',
         'news.titleRu',
         'news.titleTm',
+        'news.titleEn',
         'news.contentRu',
         'news.contentTm',
+        'news.contentEn',
         'news.imageUrl',
         'news.isFlash',
         'news.publishedAt',
@@ -113,6 +133,7 @@ export class NewsService {
         'categories.id as categoryId',
         'categories.nameRu as categoryNameRu',
         'categories.nameTm as categoryNameTm',
+        'categories.nameEn as categoryNameEn',
         'categories.slug as categorySlug',
         'users.id as authorId',
         'users.name as authorName',
@@ -132,12 +153,15 @@ export class NewsService {
 
     // Параметры сортировки
     let sortBy: string = query.sortBy || 'publishedAt';
+    const titleColumnByLang: Record<Language, string> = {
+      ru: 'titleRu',
+      tm: 'titleTm',
+      en: 'titleEn',
+    };
     // Если сортировка по заголовку, используем правильное поле в зависимости от языка
-    if (sortBy === 'titleRu' || sortBy === 'titleTm') {
-      sortBy = lang === 'ru' ? 'titleRu' : 'titleTm';
-    } else if (sortBy === 'title') {
-      sortBy = lang === 'ru' ? 'titleRu' : 'titleTm';
-    } else if (sortBy !== 'publishedAt' && sortBy !== 'createdAt' && sortBy !== 'titleRu' && sortBy !== 'titleTm') {
+    if (sortBy === 'titleRu' || sortBy === 'titleTm' || sortBy === 'titleEn' || sortBy === 'title') {
+      sortBy = titleColumnByLang[lang];
+    } else if (sortBy !== 'publishedAt' && sortBy !== 'createdAt') {
       sortBy = 'publishedAt'; // По умолчанию, если неверное значение
     }
     const sortOrder = query.sortOrder || 'desc';
@@ -262,7 +286,12 @@ export class NewsService {
       },
       category: {
         id: category.id,
-        name: lang === 'ru' ? category.nameRu : category.nameTm,
+        name:
+          lang === 'ru'
+            ? category.nameRu
+            : lang === 'tm'
+              ? category.nameTm
+              : category.nameEn,
         slug: category.slug,
       },
     };
@@ -277,8 +306,10 @@ export class NewsService {
     }
 
     // Поиск по заголовку и содержанию в зависимости от языка
-    const titleField = lang === 'ru' ? 'news.titleRu' : 'news.titleTm';
-    const contentField = lang === 'ru' ? 'news.contentRu' : 'news.contentTm';
+    const titleField =
+      lang === 'ru' ? 'news.titleRu' : lang === 'tm' ? 'news.titleTm' : 'news.titleEn';
+    const contentField =
+      lang === 'ru' ? 'news.contentRu' : lang === 'tm' ? 'news.contentTm' : 'news.contentEn';
 
     const newsRaw = await this.getBaseNewsQuery()
       .where('news.publishedAt', 'is not', null)
@@ -346,8 +377,10 @@ export class NewsService {
       .values({
         titleRu: data.titleRu,
         titleTm: data.titleTm,
+        titleEn: data.titleEn,
         contentRu: data.contentRu,
         contentTm: data.contentTm,
+        contentEn: data.contentEn,
         imageUrl: data.imageUrl || null,
         isFlash: data.isFlash || false,
         categoryId: data.categoryId,
@@ -381,8 +414,10 @@ export class NewsService {
     const updateData: {
       titleRu?: string;
       titleTm?: string;
+      titleEn?: string;
       contentRu?: string;
       contentTm?: string;
+      contentEn?: string;
       imageUrl?: string | null;
       isFlash?: boolean;
       categoryId?: number;
@@ -393,8 +428,10 @@ export class NewsService {
 
     if (data.titleRu) updateData.titleRu = data.titleRu;
     if (data.titleTm) updateData.titleTm = data.titleTm;
+    if (data.titleEn) updateData.titleEn = data.titleEn;
     if (data.contentRu) updateData.contentRu = data.contentRu;
     if (data.contentTm) updateData.contentTm = data.contentTm;
+    if (data.contentEn) updateData.contentEn = data.contentEn;
     if (data.imageUrl !== undefined) updateData.imageUrl = data.imageUrl;
     if (data.isFlash !== undefined) updateData.isFlash = data.isFlash;
     if (data.categoryId) updateData.categoryId = data.categoryId;

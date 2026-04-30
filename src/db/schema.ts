@@ -16,9 +16,11 @@ export interface Category {
   id: ColumnType<number, number | undefined, never>;
   nameRu: string;
   nameTm: string;
+  nameEn: string;
   slug: string;
   descriptionRu: string | null;
   descriptionTm: string | null;
+  descriptionEn: string | null;
   createdAt: ColumnType<Date, string | undefined, string>;
   updatedAt: ColumnType<Date, string | undefined, string>;
 }
@@ -28,8 +30,10 @@ export interface News {
   id: ColumnType<number, number | undefined, never>;
   titleRu: string;
   titleTm: string;
+  titleEn: string;
   contentRu: string;
   contentTm: string;
+  contentEn: string;
   imageUrl: string | null;
   isFlash: boolean;
   categoryId: number;
