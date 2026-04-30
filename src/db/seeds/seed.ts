@@ -25,24 +25,28 @@ async function seed() {
           password: hashedPassword,
           name: 'Администратор',
           role: 'admin',
+          isBlocked: false,
         },
         {
           email: 'editor@example.com',
           password: hashedPassword,
           name: 'Редактор',
           role: 'admin',
+          isBlocked: false,
         },
         {
           email: 'author@example.com',
           password: hashedPassword,
           name: 'Автор',
           role: 'user',
+          isBlocked: false,
         },
         {
           email: 'user@example.com',
           password: hashedPassword,
           name: 'Пользователь',
           role: 'user',
+          isBlocked: false,
         },
       ])
       .returningAll()

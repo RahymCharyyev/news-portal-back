@@ -41,6 +41,9 @@ router.post('/login', async (req, res, next) => {
     if (error instanceof Error && error.message === 'Неверный email или пароль') {
       return res.status(401).json({ error: error.message });
     }
+    if (error instanceof Error && error.message === 'Аккаунт заблокирован') {
+      return res.status(403).json({ error: error.message });
+    }
     next(error);
   }
 });

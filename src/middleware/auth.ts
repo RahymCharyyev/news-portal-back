@@ -10,6 +10,7 @@ export interface AuthRequest extends Request {
     email: string;
     name: string;
     role: 'admin' | 'user';
+    isBlocked: boolean;
   };
 }
 
@@ -42,6 +43,10 @@ export async function authenticate(
 
     if (!user) {
       return res.status(401).json({ error: 'Пользователь не найден' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Аккаунт заблокирован' });
     }
 
     // Добавляем информацию о пользователе в req

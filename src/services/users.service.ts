@@ -7,6 +7,7 @@ export interface UserListItem {
   email: string;
   name: string;
   role: 'admin' | 'user';
+  isBlocked: boolean;
   createdAt: Date;
 }
 
@@ -14,7 +15,7 @@ export class UsersService {
   async list(): Promise<UserListItem[]> {
     const rows = await db
       .selectFrom('users')
-      .select(['id', 'email', 'name', 'role', 'createdAt'])
+      .select(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
       .orderBy('id', 'desc')
       .execute();
     return rows.map((row) => ({
@@ -26,7 +27,7 @@ export class UsersService {
   async getById(id: number): Promise<UserListItem> {
     const user = await db
       .selectFrom('users')
-      .select(['id', 'email', 'name', 'role', 'createdAt'])
+      .select(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
       .where('id', '=', id)
       .executeTakeFirst();
 
@@ -54,8 +55,9 @@ export class UsersService {
         name: data.name,
         password,
         role: data.role,
+        isBlocked: data.isBlocked,
       })
-      .returning(['id', 'email', 'name', 'role', 'createdAt'])
+      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
       .executeTakeFirstOrThrow();
     return { ...user, role: user.role as 'admin' | 'user' };
   }
@@ -66,11 +68,13 @@ export class UsersService {
       name: string;
       password: string;
       role: 'admin' | 'user';
+      isBlocked: boolean;
     }> = {};
     if (data.email) patch.email = data.email;
     if (data.name) patch.name = data.name;
     if (data.role) patch.role = data.role;
     if (data.password) patch.password = await hashPassword(data.password);
+    if (data.isBlocked !== undefined) patch.isBlocked = data.isBlocked;
 
     if (!Object.keys(patch).length) {
       throw new Error('Нет данных для обновления');
@@ -92,7 +96,7 @@ export class UsersService {
       .updateTable('users')
       .set(patch)
       .where('id', '=', id)
-      .returning(['id', 'email', 'name', 'role', 'createdAt'])
+      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
       .executeTakeFirst();
 
     if (!updated) {

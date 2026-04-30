@@ -7,6 +7,7 @@ export interface User {
   password: string;
   name: string;
   role: 'admin' | 'user';
+  isBlocked: boolean;
   createdAt: ColumnType<Date, string | undefined, string>;
   updatedAt: ColumnType<Date, string | undefined, string>;
 }

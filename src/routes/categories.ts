@@ -6,7 +6,7 @@ import { categoryService } from '../services/category.service';
 const router = Router();
 
 // GET /api/categories?lang=ru|tm - Получить все категории
-router.get('/', async (req, res, next) => {
+router.get('/', authenticate, async (req, res, next) => {
   try {
     const lang = languageSchema.parse(req.query.lang || 'ru');
     const categories = await categoryService.getAll(lang);
@@ -17,7 +17,7 @@ router.get('/', async (req, res, next) => {
 });
 
 // GET /api/categories/:slug?lang=ru|tm - Получить категорию по slug
-router.get('/:slug', async (req, res, next) => {
+router.get('/:slug', authenticate, async (req, res, next) => {
   try {
     const lang = languageSchema.parse(req.query.lang || 'ru');
     const category = await categoryService.getBySlug(req.params.slug, lang);

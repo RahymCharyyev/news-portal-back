@@ -73,6 +73,23 @@ export interface NewsListResponse {
  */
 export class NewsService {
   /**
+   * Автоматически снимает признак срочности у новостей,
+   * опубликованных более 24 часов назад.
+   */
+  private async expireOldFlashNews(): Promise<void> {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await db
+      .updateTable('news')
+      .set({
+        isFlash: false,
+      })
+      .where('isFlash', '=', true)
+      .where('publishedAt', 'is not', null)
+      .where('publishedAt', '<=', cutoff)
+      .execute();
+  }
+
+  /**
    * Преобразует сырые данные новости в локализованный формат
    */
   private mapToLocalized(news: NewsRawData, lang: Language = 'ru'): NewsListItem {
@@ -145,6 +162,8 @@ export class NewsService {
    * Получить список новостей с фильтрацией и пагинацией
    */
   async getList(query: NewsQueryInput): Promise<NewsListResponse> {
+    await this.expireOldFlashNews();
+
     const page = query.page || DEFAULT_PAGE;
     const limit = query.limit || DEFAULT_LIMIT;
     const categoryId = query.categoryId;
@@ -244,6 +263,8 @@ export class NewsService {
    * Получить новости по категории
    */
   async getByCategorySlug(slug: string, page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, lang: Language = 'ru'): Promise<NewsListResponse> {
+    await this.expireOldFlashNews();
+
     // Находим категорию
     const category = await db
       .selectFrom('categories')
@@ -301,6 +322,8 @@ export class NewsService {
    * Поиск новостей
    */
   async search(searchQuery: string, page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, lang: Language = 'ru'): Promise<NewsListResponse> {
+    await this.expireOldFlashNews();
+
     if (!searchQuery || searchQuery.trim().length === 0) {
       throw new Error('Поисковый запрос обязателен');
     }
@@ -357,6 +380,8 @@ export class NewsService {
    * Получить новость по ID
    */
   async getById(id: number, lang: Language = 'ru'): Promise<NewsDetail | null> {
+    await this.expireOldFlashNews();
+
     const news = await this.getBaseNewsQuery()
       .where('news.id', '=', id)
       .executeTakeFirst();

@@ -65,6 +65,7 @@ export const createUserSchema = z.object({
   password: z.string().min(6, 'Пароль должен быть минимум 6 символов'),
   name: z.string().min(2, 'Имя должно быть минимум 2 символов'),
   role: userRoleSchema.default('user'),
+  isBlocked: z.boolean().optional().default(false),
 });
 
 export const updateUserSchema = z.object({
@@ -72,6 +73,7 @@ export const updateUserSchema = z.object({
   password: z.string().min(6, 'Пароль должен быть минимум 6 символов').optional(),
   name: z.string().min(2, 'Имя должно быть минимум 2 символов').optional(),
   role: userRoleSchema.optional(),
+  isBlocked: z.boolean().optional(),
 });
 
 // Схема для поиска

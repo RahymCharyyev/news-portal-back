@@ -7,7 +7,7 @@ import { DEFAULT_PAGE, DEFAULT_LIMIT } from '../utils/constants';
 const router = Router();
 
 // GET /api/news - Получить все новости (с информацией о категории и авторе)
-router.get('/', async (req, res, next) => {
+router.get('/', authenticate, async (req, res, next) => {
   try {
     // Валидация query параметров
     const queryParams = newsQuerySchema.parse(req.query);
@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
 
 
 // GET /api/news/category/:slug?lang=ru|tm - Получить новости по категории
-router.get('/category/:slug', async (req, res, next) => {
+router.get('/category/:slug', authenticate, async (req, res, next) => {
   try {
     const page = parseInt(req.query.page as string) || DEFAULT_PAGE;
     const limit = parseInt(req.query.limit as string) || DEFAULT_LIMIT;
@@ -40,7 +40,7 @@ router.get('/category/:slug', async (req, res, next) => {
 });
 
 // GET /api/news/search?q=запрос&lang=ru|tm - Поиск новостей
-router.get('/search', async (req, res, next) => {
+router.get('/search', authenticate, async (req, res, next) => {
   try {
     const validatedQuery = searchSchema.parse(req.query);
     const page = validatedQuery.page || DEFAULT_PAGE;
@@ -59,7 +59,7 @@ router.get('/search', async (req, res, next) => {
 });
 
 // GET /api/news/:id?lang=ru|tm - Получить новость по ID
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const newsId = parseInt(req.params.id);
 

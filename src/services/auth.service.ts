@@ -8,6 +8,7 @@ export interface UserResponse {
   email: string;
   name: string;
   role: 'admin' | 'user';
+  isBlocked: boolean;
 }
 
 export interface AuthResponse {
@@ -45,8 +46,9 @@ export class AuthService {
         password: hashedPassword,
         name: data.name,
         role: 'user',
+        isBlocked: false,
       })
-      .returning(['id', 'email', 'name', 'role', 'createdAt'])
+      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
       .executeTakeFirstOrThrow();
 
     // Создаем JWT токен
@@ -58,6 +60,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role,
+        isBlocked: user.isBlocked,
       },
       token,
     };
@@ -85,6 +88,10 @@ export class AuthService {
       throw new Error('Неверный email или пароль');
     }
 
+    if (user.isBlocked) {
+      throw new Error('Аккаунт заблокирован');
+    }
+
     // Создаем JWT токен
     const token = generateToken(user.id);
 
@@ -94,6 +101,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         role: user.role as 'admin' | 'user',
+        isBlocked: user.isBlocked,
       },
       token,
     };
@@ -105,7 +113,7 @@ export class AuthService {
   async getUserById(userId: number): Promise<UserResponse | null> {
     const user = await db
       .selectFrom('users')
-      .select(['id', 'email', 'name', 'role'])
+      .select(['id', 'email', 'name', 'role', 'isBlocked'])
       .where('id', '=', userId)
       .executeTakeFirst();
 
@@ -118,6 +126,7 @@ export class AuthService {
       email: user.email,
       name: user.name,
       role: user.role as 'admin' | 'user',
+      isBlocked: user.isBlocked,
     };
   }
 }
