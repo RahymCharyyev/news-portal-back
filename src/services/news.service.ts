@@ -397,15 +397,22 @@ export class NewsService {
    * Создать новость
    */
   async create(data: CreateNewsInput, authorId: number) {
+    const fallbackTitle = data.titleRu || data.titleTm || data.titleEn;
+    const fallbackContent = data.contentRu || data.contentTm || data.contentEn;
+
+    if (!fallbackTitle || !fallbackContent) {
+      throw new Error('Заполните заголовок и содержание хотя бы на одном языке');
+    }
+
     return await db
       .insertInto('news')
       .values({
-        titleRu: data.titleRu,
-        titleTm: data.titleTm,
-        titleEn: data.titleEn,
-        contentRu: data.contentRu,
-        contentTm: data.contentTm,
-        contentEn: data.contentEn,
+        titleRu: data.titleRu || fallbackTitle,
+        titleTm: data.titleTm || fallbackTitle,
+        titleEn: data.titleEn || fallbackTitle,
+        contentRu: data.contentRu || fallbackContent,
+        contentTm: data.contentTm || fallbackContent,
+        contentEn: data.contentEn || fallbackContent,
         imageUrl: data.imageUrl || null,
         isFlash: data.isFlash || false,
         categoryId: data.categoryId,

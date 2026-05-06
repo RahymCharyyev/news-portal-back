@@ -5,14 +5,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
-    "db:up": "docker-compose up -d",
-    "db:down": "docker-compose down",
-    "db:logs": "docker-compose logs -f postgres",
     "migrate": "tsx src/db/migrations/migrate.ts",
-    "migrate:multilang": "tsx src/db/migrations/add_multilang_and_image.ts",
-    "migrate:drop-old": "tsx src/db/migrations/drop_old_columns.ts",
-    "migrate:english": "tsx src/db/migrations/add_english_lang.ts",
-    "migrate:blocking": "tsx src/db/migrations/add_user_blocking.ts",
     "seed": "tsx src/db/seeds/seed.ts"
   },
   "dependencies": {

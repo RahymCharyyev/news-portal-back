@@ -20,16 +20,27 @@ export const updateCategorySchema = createCategorySchema.partial();
 
 // Схема для создания новости
 export const createNewsSchema = z.object({
-  titleRu: z.string().min(1, 'Заголовок на русском обязателен').max(500, 'Заголовок слишком длинный'),
-  titleTm: z.string().min(1, 'Заголовок на туркменском обязателен').max(500, 'Заголовок слишком длинный'),
-  titleEn: z.string().min(1, 'Заголовок на английском обязателен').max(500, 'Заголовок слишком длинный'),
-  contentRu: z.string().min(1, 'Содержание на русском обязательно').max(500000),
-  contentTm: z.string().min(1, 'Содержание на туркменском обязательно').max(500000),
-  contentEn: z.string().min(1, 'Содержание на английском обязательно').max(500000),
+  titleRu: z.string().trim().max(500, 'Заголовок слишком длинный').optional(),
+  titleTm: z.string().trim().max(500, 'Заголовок слишком длинный').optional(),
+  titleEn: z.string().trim().max(500, 'Заголовок слишком длинный').optional(),
+  contentRu: z.string().trim().max(500000).optional(),
+  contentTm: z.string().trim().max(500000).optional(),
+  contentEn: z.string().trim().max(500000).optional(),
   imageUrl: z.string().max(2000).optional().nullable(),
   isFlash: z.boolean().optional().default(false),
   categoryId: z.number().int().positive('ID категории должен быть положительным числом'),
   authorId: z.number().int().positive('ID автора должен быть положительным числом').optional(),
+}).superRefine((data, ctx) => {
+  const hasRu = Boolean(data.titleRu && data.contentRu);
+  const hasTm = Boolean(data.titleTm && data.contentTm);
+  const hasEn = Boolean(data.titleEn && data.contentEn);
+  if (!hasRu && !hasTm && !hasEn) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Заполните заголовок и содержание хотя бы на одном языке',
+      path: ['titleRu'],
+    });
+  }
 });
 
 // Схема для обновления новости (все поля опциональны)

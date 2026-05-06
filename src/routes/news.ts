@@ -16,6 +16,9 @@ router.get('/', authenticate, async (req, res, next) => {
     
     res.json(result);
   } catch (error) {
+    if (error instanceof Error && error.message === 'Заполните заголовок и содержание хотя бы на одном языке') {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 });

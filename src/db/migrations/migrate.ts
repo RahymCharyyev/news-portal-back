@@ -1,59 +1,25 @@
 import 'dotenv/config';
 import { db } from '../../config/database';
-import { sql } from 'kysely';
+import { createUsersTable } from './create_users_table';
+import { createCategoriesTable } from './create_categories_table';
+import { createNewsTable } from './create_news_table';
 
 async function migrate() {
   try {
-    console.log('🔄 Создание таблиц...');
+    console.log('🔄 Запуск всех миграций...');
 
-    // Создаем таблицу users
-    await sql`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        email VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        name VARCHAR(255) NOT NULL,
-        role VARCHAR(16) NOT NULL DEFAULT 'user',
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `.execute(db);
-
+    await createUsersTable();
     console.log('✅ Таблица users создана');
 
-    // Создаем таблицу categories
-    await sql`
-      CREATE TABLE IF NOT EXISTS categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        slug VARCHAR(255) UNIQUE NOT NULL,
-        description TEXT,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `.execute(db);
-
+    await createCategoriesTable();
     console.log('✅ Таблица categories создана');
 
-    // Создаем таблицу news
-    await sql`
-      CREATE TABLE IF NOT EXISTS news (
-        id SERIAL PRIMARY KEY,
-        title VARCHAR(500) NOT NULL,
-        content TEXT NOT NULL,
-        "categoryId" INTEGER REFERENCES categories(id) ON DELETE CASCADE,
-        "authorId" INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        "publishedAt" TIMESTAMP,
-        "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `.execute(db);
-
+    await createNewsTable();
     console.log('✅ Таблица news создана');
 
-    console.log('🎉 Все таблицы созданы успешно!');
+    console.log('🎉 Все миграции выполнены успешно!');
   } catch (error) {
-    console.error('❌ Ошибка при создании таблиц:', error);
+    console.error('❌ Ошибка при выполнении миграций:', error);
     throw error;
   } finally {
     await db.destroy(); // Закрываем соединение
