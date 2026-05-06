@@ -1,8 +1,15 @@
 import { Router } from 'express';
-import { createNewsSchema, updateNewsSchema, newsQuerySchema, searchSchema, languageSchema } from '../types/schemas';
+import {
+  createNewsSchema,
+  updateNewsSchema,
+  newsQuerySchema,
+  searchSchema,
+  languageSchema,
+  idParamSchema,
+  paginationSchema,
+} from '../types/schemas';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { newsService } from '../services/news.service';
-import { DEFAULT_PAGE, DEFAULT_LIMIT } from '../utils/constants';
 
 const router = Router();
 
@@ -27,8 +34,7 @@ router.get('/', authenticate, async (req, res, next) => {
 // GET /api/news/category/:slug?lang=ru|tm - Получить новости по категории
 router.get('/category/:slug', authenticate, async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page as string) || DEFAULT_PAGE;
-    const limit = parseInt(req.query.limit as string) || DEFAULT_LIMIT;
+    const { page, limit } = paginationSchema.parse(req.query);
     const lang = languageSchema.parse(req.query.lang || 'ru');
 
     const result = await newsService.getByCategorySlug(req.params.slug, page, limit, lang);
@@ -46,8 +52,8 @@ router.get('/category/:slug', authenticate, async (req, res, next) => {
 router.get('/search', authenticate, async (req, res, next) => {
   try {
     const validatedQuery = searchSchema.parse(req.query);
-    const page = validatedQuery.page || DEFAULT_PAGE;
-    const limit = validatedQuery.limit || DEFAULT_LIMIT;
+    const page = validatedQuery.page;
+    const limit = validatedQuery.limit;
     const lang = validatedQuery.lang || 'ru';
 
     const result = await newsService.search(validatedQuery.q, page, limit, lang);
@@ -64,11 +70,7 @@ router.get('/search', authenticate, async (req, res, next) => {
 // GET /api/news/:id?lang=ru|tm - Получить новость по ID
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const newsId = parseInt(req.params.id);
-
-    if (isNaN(newsId) || newsId <= 0) {
-      return res.status(400).json({ error: 'Некорректный ID' });
-    }
+    const { id: newsId } = idParamSchema.parse(req.params);
 
     const lang = languageSchema.parse(req.query.lang || 'ru');
     const news = await newsService.getById(newsId, lang);
@@ -103,11 +105,7 @@ router.post('/', authenticate, async (req: AuthRequest, res, next) => {
 // PUT /api/news/:id - Обновить новость (только автор)
 router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const newsId = parseInt(req.params.id);
-
-    if (isNaN(newsId) || newsId <= 0) {
-      return res.status(400).json({ error: 'Некорректный ID' });
-    }
+    const { id: newsId } = idParamSchema.parse(req.params);
 
     if (!req.userId) {
       return res.status(401).json({ error: 'Пользователь не авторизован' });
@@ -135,11 +133,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
 // DELETE /api/news/:id - Удалить новость (только автор)
 router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const newsId = parseInt(req.params.id);
-
-    if (isNaN(newsId) || newsId <= 0) {
-      return res.status(400).json({ error: 'Некорректный ID' });
-    }
+    const { id: newsId } = idParamSchema.parse(req.params);
 
     if (!req.userId) {
       return res.status(401).json({ error: 'Пользователь не авторизован' });

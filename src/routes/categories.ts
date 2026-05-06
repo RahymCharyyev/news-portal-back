@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createCategorySchema, updateCategorySchema, languageSchema } from '../types/schemas';
+import { createCategorySchema, updateCategorySchema, languageSchema, idParamSchema } from '../types/schemas';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { categoryService } from '../services/category.service';
 
@@ -49,11 +49,7 @@ router.post('/', authenticate, async (req: AuthRequest, res, next) => {
 // PUT /api/categories/:id - Обновить категорию (требует авторизации)
 router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const categoryId = parseInt(req.params.id);
-    
-    if (isNaN(categoryId) || categoryId <= 0) {
-      return res.status(400).json({ error: 'Некорректный ID' });
-    }
+    const { id: categoryId } = idParamSchema.parse(req.params);
     
     // Валидация через Zod
     const validatedData = updateCategorySchema.parse(req.body);
@@ -72,11 +68,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res, next) => {
 // DELETE /api/categories/:id - Удалить категорию (требует авторизации)
 router.delete('/:id', authenticate, async (req: AuthRequest, res, next) => {
   try {
-    const categoryId = parseInt(req.params.id);
-    
-    if (isNaN(categoryId) || categoryId <= 0) {
-      return res.status(400).json({ error: 'Некорректный ID' });
-    }
+    const { id: categoryId } = idParamSchema.parse(req.params);
     
     await categoryService.delete(categoryId);
     

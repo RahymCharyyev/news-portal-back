@@ -1,52 +1,55 @@
 import type { ColumnType } from 'kysely';
 
-// Таблица пользователей
-export interface User {
-  id: ColumnType<number, number | undefined, never>;
-  email: string;
-  password: string;
-  name: string;
-  role: 'admin' | 'user';
-  isBlocked: boolean;
-  createdAt: ColumnType<Date, string | undefined, string>;
-  updatedAt: ColumnType<Date, string | undefined, string>;
-}
+export type Generated<T> =
+  T extends ColumnType<infer S, infer I, infer U>
+    ? ColumnType<S, I | undefined, U>
+    : ColumnType<T, T | undefined, T>;
 
-// Таблица категорий
-export interface Category {
-  id: ColumnType<number, number | undefined, never>;
-  nameRu: string;
-  nameTm: string;
-  nameEn: string;
-  slug: string;
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+
+export interface Categories {
+  createdAt: Generated<Timestamp | null>;
+  descriptionEn: string | null;
   descriptionRu: string | null;
   descriptionTm: string | null;
-  descriptionEn: string | null;
-  createdAt: ColumnType<Date, string | undefined, string>;
-  updatedAt: ColumnType<Date, string | undefined, string>;
+  id: Generated<number>;
+  nameEn: string;
+  nameRu: string;
+  nameTm: string;
+  slug: string;
+  updatedAt: Generated<Timestamp | null>;
 }
 
-// Таблица новостей
 export interface News {
-  id: ColumnType<number, number | undefined, never>;
-  titleRu: string;
-  titleTm: string;
-  titleEn: string;
+  authorId: number | null;
+  categoryId: number | null;
+  contentEn: string;
   contentRu: string;
   contentTm: string;
-  contentEn: string;
+  createdAt: Generated<Timestamp | null>;
+  id: Generated<number>;
   imageUrl: string | null;
-  isFlash: boolean;
-  categoryId: number;
-  authorId: number;
-  publishedAt: Date | null;
-  createdAt: ColumnType<Date, string | undefined, string>;
-  updatedAt: ColumnType<Date, string | undefined, string>;
+  isFlash: Generated<boolean | null>;
+  publishedAt: Timestamp | null;
+  titleEn: string;
+  titleRu: string;
+  titleTm: string;
+  updatedAt: Generated<Timestamp | null>;
 }
 
-// Главный интерфейс - описывает всю базу данных
+export interface Users {
+  createdAt: Generated<Timestamp | null>;
+  email: string;
+  id: Generated<number>;
+  isBlocked: Generated<boolean>;
+  name: string;
+  password: string;
+  role: 'admin' | 'user';
+  updatedAt: Generated<Timestamp | null>;
+}
+
 export interface DB {
-  users: User;
-  categories: Category;
+  categories: Categories;
   news: News;
+  users: Users;
 }

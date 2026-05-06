@@ -1,6 +1,6 @@
-import { db } from '../config/database';
 import { hashPassword } from '../utils/password';
 import type { CreateUserInput, UpdateUserInput } from '../types/schemas';
+import { usersRepository } from '../repositories/users.repository';
 
 export interface UserListItem {
   id: number;
@@ -8,61 +8,44 @@ export interface UserListItem {
   name: string;
   role: 'admin' | 'user';
   isBlocked: boolean;
-  createdAt: Date;
+  createdAt: Date | null;
 }
 
-export class UsersService {
-  async list(): Promise<UserListItem[]> {
-    const rows = await db
-      .selectFrom('users')
-      .select(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
-      .orderBy('id', 'desc')
-      .execute();
+async function list(): Promise<UserListItem[]> {
+    const rows = await usersRepository.list();
     return rows.map((row) => ({
       ...row,
       role: row.role as 'admin' | 'user',
     }));
-  }
+}
 
-  async getById(id: number): Promise<UserListItem> {
-    const user = await db
-      .selectFrom('users')
-      .select(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
-      .where('id', '=', id)
-      .executeTakeFirst();
+async function getById(id: number): Promise<UserListItem> {
+    const user = await usersRepository.findById(id);
 
     if (!user) {
       throw new Error('Пользователь не найден');
     }
 
     return { ...user, role: user.role as 'admin' | 'user' };
-  }
+}
 
-  async create(data: CreateUserInput): Promise<UserListItem> {
-    const existing = await db
-      .selectFrom('users')
-      .select('id')
-      .where('email', '=', data.email)
-      .executeTakeFirst();
+async function create(data: CreateUserInput): Promise<UserListItem> {
+    const existing = await usersRepository.findIdByEmail(data.email);
     if (existing) {
       throw new Error('Пользователь с таким email уже существует');
     }
     const password = await hashPassword(data.password);
-    const user = await db
-      .insertInto('users')
-      .values({
-        email: data.email,
-        name: data.name,
-        password,
-        role: data.role,
-        isBlocked: data.isBlocked,
-      })
-      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
-      .executeTakeFirstOrThrow();
+    const user = await usersRepository.create({
+      email: data.email,
+      name: data.name,
+      password,
+      role: data.role,
+      isBlocked: data.isBlocked,
+    });
     return { ...user, role: user.role as 'admin' | 'user' };
-  }
+}
 
-  async update(id: number, data: UpdateUserInput): Promise<UserListItem> {
+async function update(id: number, data: UpdateUserInput): Promise<UserListItem> {
     const patch: Partial<{
       email: string;
       name: string;
@@ -81,41 +64,32 @@ export class UsersService {
     }
 
     if (data.email) {
-      const existing = await db
-        .selectFrom('users')
-        .select('id')
-        .where('email', '=', data.email)
-        .where('id', '!=', id)
-        .executeTakeFirst();
+      const existing = await usersRepository.findDuplicateEmail(data.email, id);
       if (existing) {
         throw new Error('Пользователь с таким email уже существует');
       }
     }
 
-    const updated = await db
-      .updateTable('users')
-      .set(patch)
-      .where('id', '=', id)
-      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
-      .executeTakeFirst();
+    const updated = await usersRepository.update(id, patch);
 
     if (!updated) {
       throw new Error('Пользователь не найден');
     }
 
     return { ...updated, role: updated.role as 'admin' | 'user' };
-  }
+}
 
-  async remove(id: number): Promise<void> {
-    const deleted = await db
-      .deleteFrom('users')
-      .where('id', '=', id)
-      .returning('id')
-      .executeTakeFirst();
+async function remove(id: number): Promise<void> {
+    const deleted = await usersRepository.remove(id);
     if (!deleted) {
       throw new Error('Пользователь не найден');
     }
-  }
 }
 
-export const usersService = new UsersService();
+export const usersService = {
+  list,
+  getById,
+  create,
+  update,
+  remove,
+};

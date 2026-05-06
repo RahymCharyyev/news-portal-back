@@ -71,6 +71,15 @@ export const loginSchema = z.object({
 
 export const userRoleSchema = z.enum(['admin', 'user']);
 
+export const idParamSchema = z.object({
+  id: z.coerce.number().int().positive('Некорректный ID'),
+});
+
+export const paginationSchema = z.object({
+  page: z.coerce.number().int().positive().optional().default(1),
+  limit: z.coerce.number().int().positive().optional().default(10),
+});
+
 export const createUserSchema = z.object({
   email: z.string().email('Некорректный email'),
   password: z.string().min(6, 'Пароль должен быть минимум 6 символов'),

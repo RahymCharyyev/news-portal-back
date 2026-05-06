@@ -26,7 +26,6 @@ app.use(cors());
 app.use(express.json());
 app.use(requestLogger);
 
-app.use('/uploads', express.static(uploadsDir));
 app.use('/news/uploads', express.static(uploadsDir));
 
 app.use('/api/auth', authRoutes);
@@ -54,27 +53,4 @@ app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📚 API endpoints:`);
-  console.log(`   - POST /api/auth/register`);
-  console.log(`   - POST /api/auth/login`);
-  console.log(`   - GET  /api/auth/me`);
-  console.log(`   - GET  /health`);
-  console.log(`   - GET  /api/categories`);
-  console.log(`   - GET  /api/categories/:slug`);
-  console.log(`   - POST /api/categories (authenticated)`);
-  console.log(`   - PUT  /api/categories/:id (authenticated)`);
-  console.log(`   - DELETE /api/categories/:id (authenticated)`);
-  console.log(`   - GET  /api/news`);
-  console.log(`   - GET  /api/news/search`);
-  console.log(`   - GET  /api/news/category/:slug`);
-  console.log(`   - GET  /api/news/:id`);
-  console.log(`   - POST /api/news (authenticated)`);
-  console.log(`   - PUT  /api/news/:id (authenticated)`);
-  console.log(`   - DELETE /api/news/:id (authenticated)`);
-  console.log(`   - POST /api/upload/image (authenticated)`);
-  console.log(`   - GET  /api/users (admin only)`);
-  console.log(`   - GET  /api/users/:id (admin only)`);
-  console.log(`   - POST /api/users (admin only)`);
-  console.log(`   - PUT  /api/users/:id (admin only)`);
-  console.log(`   - DELETE /api/users/:id (admin only)`);
 });

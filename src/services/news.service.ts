@@ -1,6 +1,6 @@
-import { db } from '../config/database';
 import { CreateNewsInput, UpdateNewsInput, NewsQueryInput, Language } from '../types/schemas';
 import { DEFAULT_PAGE, DEFAULT_LIMIT } from '../utils/constants';
+import { newsRepository } from '../repositories/news.repository';
 
 export interface NewsListItem {
   id: number;
@@ -68,31 +68,15 @@ export interface NewsListResponse {
   query?: string;
 }
 
-/**
- * Сервис для работы с новостями
- */
-export class NewsService {
-  /**
-   * Автоматически снимает признак срочности у новостей,
-   * опубликованных более 24 часов назад.
-   */
-  private async expireOldFlashNews(): Promise<void> {
-    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await db
-      .updateTable('news')
-      .set({
-        isFlash: false,
-      })
-      .where('isFlash', '=', true)
-      .where('publishedAt', 'is not', null)
-      .where('publishedAt', '<=', cutoff)
-      .execute();
-  }
+async function expireOldFlashNews(): Promise<void> {
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  await newsRepository.expireOldFlashNews(cutoff);
+}
 
   /**
    * Преобразует сырые данные новости в локализованный формат
    */
-  private mapToLocalized(news: NewsRawData, lang: Language = 'ru'): NewsListItem {
+function mapToLocalized(news: NewsRawData, lang: Language = 'ru'): NewsListItem {
     const titleByLang: Record<Language, string> = {
       ru: news.titleRu,
       tm: news.titleTm,
@@ -124,45 +108,20 @@ export class NewsService {
       authorName: news.authorName,
       authorEmail: news.authorEmail,
     };
-  }
+}
 
   /**
    * Базовый запрос для получения новостей с JOIN
    */
-  private getBaseNewsQuery() {
-    return db
-      .selectFrom('news')
-      .innerJoin('categories', 'news.categoryId', 'categories.id')
-      .innerJoin('users', 'news.authorId', 'users.id')
-      .select([
-        'news.id',
-        'news.titleRu',
-        'news.titleTm',
-        'news.titleEn',
-        'news.contentRu',
-        'news.contentTm',
-        'news.contentEn',
-        'news.imageUrl',
-        'news.isFlash',
-        'news.publishedAt',
-        'news.createdAt',
-        'news.updatedAt',
-        'categories.id as categoryId',
-        'categories.nameRu as categoryNameRu',
-        'categories.nameTm as categoryNameTm',
-        'categories.nameEn as categoryNameEn',
-        'categories.slug as categorySlug',
-        'users.id as authorId',
-        'users.name as authorName',
-        'users.email as authorEmail',
-      ]);
-  }
+function getBaseNewsQuery() {
+  return newsRepository.getBaseNewsQuery();
+}
 
   /**
    * Получить список новостей с фильтрацией и пагинацией
    */
-  async getList(query: NewsQueryInput): Promise<NewsListResponse> {
-    await this.expireOldFlashNews();
+async function getList(query: NewsQueryInput): Promise<NewsListResponse> {
+  await expireOldFlashNews();
 
     const page = query.page || DEFAULT_PAGE;
     const limit = query.limit || DEFAULT_LIMIT;
@@ -186,7 +145,7 @@ export class NewsService {
     const sortOrder = query.sortOrder || 'desc';
 
     // Строим запрос
-    let baseQuery = this.getBaseNewsQuery()
+    let baseQuery = getBaseNewsQuery()
       .where('news.publishedAt', 'is not', null);
 
     // Фильтр по категории
@@ -217,31 +176,10 @@ export class NewsService {
 
     // Получаем новости
     const newsRaw = await newsQuery.execute();
-    const news = newsRaw.map(item => this.mapToLocalized(item as NewsRawData, lang));
+    const news = newsRaw.map(item => mapToLocalized(item as NewsRawData, lang));
 
     // Получаем общее количество
-    let totalQuery = db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('news.publishedAt', 'is not', null);
-
-    if (categoryId) {
-      totalQuery = totalQuery.where('news.categoryId', '=', categoryId);
-    }
-
-    if (isFlash !== undefined) {
-      totalQuery = totalQuery.where('news.isFlash', '=', isFlash);
-    }
-
-    if (query.startDate) {
-      totalQuery = totalQuery.where('news.publishedAt', '>=', new Date(query.startDate));
-    }
-
-    if (query.endDate) {
-      totalQuery = totalQuery.where('news.publishedAt', '<=', new Date(query.endDate));
-    }
-
-    const totalResult = await totalQuery.executeTakeFirst();
+    const totalResult = await newsRepository.countPublishedWithFilters(query);
     const total = Number(totalResult?.total || 0);
 
     return {
@@ -257,27 +195,28 @@ export class NewsService {
         order: order,
       },
     };
-  }
+}
 
   /**
    * Получить новости по категории
    */
-  async getByCategorySlug(slug: string, page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, lang: Language = 'ru'): Promise<NewsListResponse> {
-    await this.expireOldFlashNews();
+async function getByCategorySlug(
+  slug: string,
+  page: number = DEFAULT_PAGE,
+  limit: number = DEFAULT_LIMIT,
+  lang: Language = 'ru'
+): Promise<NewsListResponse> {
+  await expireOldFlashNews();
 
     // Находим категорию
-    const category = await db
-      .selectFrom('categories')
-      .selectAll()
-      .where('slug', '=', slug)
-      .executeTakeFirst();
+    const category = await newsRepository.findCategoryBySlug(slug);
 
     if (!category) {
       throw new Error('Категория не найдена');
     }
 
     // Получаем новости
-    const newsRaw = await this.getBaseNewsQuery()
+    const newsRaw = await getBaseNewsQuery()
       .where('news.categoryId', '=', category.id)
       .where('news.publishedAt', 'is not', null)
       .orderBy('news.publishedAt', 'desc')
@@ -285,15 +224,10 @@ export class NewsService {
       .offset((page - 1) * limit)
       .execute();
 
-    const news = newsRaw.map(item => this.mapToLocalized(item as NewsRawData, lang));
+    const news = newsRaw.map(item => mapToLocalized(item as NewsRawData, lang));
 
     // Получаем общее количество
-    const totalResult = await db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('categoryId', '=', category.id)
-      .where('publishedAt', 'is not', null)
-      .executeTakeFirst();
+    const totalResult = await newsRepository.countPublishedByCategory(category.id);
 
     const total = Number(totalResult?.total || 0);
 
@@ -316,13 +250,18 @@ export class NewsService {
         slug: category.slug,
       },
     };
-  }
+}
 
   /**
    * Поиск новостей
    */
-  async search(searchQuery: string, page: number = DEFAULT_PAGE, limit: number = DEFAULT_LIMIT, lang: Language = 'ru'): Promise<NewsListResponse> {
-    await this.expireOldFlashNews();
+async function search(
+  searchQuery: string,
+  page: number = DEFAULT_PAGE,
+  limit: number = DEFAULT_LIMIT,
+  lang: Language = 'ru'
+): Promise<NewsListResponse> {
+  await expireOldFlashNews();
 
     if (!searchQuery || searchQuery.trim().length === 0) {
       throw new Error('Поисковый запрос обязателен');
@@ -334,7 +273,7 @@ export class NewsService {
     const contentField =
       lang === 'ru' ? 'news.contentRu' : lang === 'tm' ? 'news.contentTm' : 'news.contentEn';
 
-    const newsRaw = await this.getBaseNewsQuery()
+    const newsRaw = await getBaseNewsQuery()
       .where('news.publishedAt', 'is not', null)
       .where((eb) =>
         eb.or([
@@ -347,21 +286,14 @@ export class NewsService {
       .offset((page - 1) * limit)
       .execute();
 
-    const news = newsRaw.map(item => this.mapToLocalized(item as NewsRawData, lang));
+    const news = newsRaw.map(item => mapToLocalized(item as NewsRawData, lang));
 
     // Получаем общее количество
-    const totalQuery = db
-      .selectFrom('news')
-      .select(({ fn }) => fn.count('news.id').as('total'))
-      .where('publishedAt', 'is not', null)
-      .where((eb) =>
-        eb.or([
-          eb(titleField as any, 'ilike', `%${searchQuery}%`),
-          eb(contentField as any, 'ilike', `%${searchQuery}%`),
-        ])
-      );
-
-    const totalResult = await totalQuery.executeTakeFirst();
+    const totalResult = await newsRepository.countSearchPublished(
+      titleField,
+      contentField,
+      searchQuery
+    );
     const total = Number(totalResult?.total || 0);
 
     return {
@@ -374,15 +306,15 @@ export class NewsService {
       },
       query: searchQuery,
     };
-  }
+}
 
   /**
    * Получить новость по ID
    */
-  async getById(id: number, lang: Language = 'ru'): Promise<NewsDetail | null> {
-    await this.expireOldFlashNews();
+async function getById(id: number, lang: Language = 'ru'): Promise<NewsDetail | null> {
+  await expireOldFlashNews();
 
-    const news = await this.getBaseNewsQuery()
+  const news = await getBaseNewsQuery()
       .where('news.id', '=', id)
       .executeTakeFirst();
 
@@ -390,13 +322,13 @@ export class NewsService {
       return null;
     }
 
-    return this.mapToLocalized(news as NewsRawData, lang) as NewsDetail;
-  }
+  return mapToLocalized(news as NewsRawData, lang) as NewsDetail;
+}
 
   /**
    * Создать новость
    */
-  async create(data: CreateNewsInput, authorId: number) {
+async function create(data: CreateNewsInput, authorId: number) {
     const fallbackTitle = data.titleRu || data.titleTm || data.titleEn;
     const fallbackContent = data.contentRu || data.contentTm || data.contentEn;
 
@@ -404,35 +336,27 @@ export class NewsService {
       throw new Error('Заполните заголовок и содержание хотя бы на одном языке');
     }
 
-    return await db
-      .insertInto('news')
-      .values({
-        titleRu: data.titleRu || fallbackTitle,
-        titleTm: data.titleTm || fallbackTitle,
-        titleEn: data.titleEn || fallbackTitle,
-        contentRu: data.contentRu || fallbackContent,
-        contentTm: data.contentTm || fallbackContent,
-        contentEn: data.contentEn || fallbackContent,
-        imageUrl: data.imageUrl || null,
-        isFlash: data.isFlash || false,
-        categoryId: data.categoryId,
-        authorId,
-        publishedAt: new Date(),
-      })
-      .returningAll()
-      .executeTakeFirstOrThrow();
-  }
+  return await newsRepository.create({
+    titleRu: data.titleRu || fallbackTitle,
+    titleTm: data.titleTm || fallbackTitle,
+    titleEn: data.titleEn || fallbackTitle,
+    contentRu: data.contentRu || fallbackContent,
+    contentTm: data.contentTm || fallbackContent,
+    contentEn: data.contentEn || fallbackContent,
+    imageUrl: data.imageUrl || null,
+    isFlash: data.isFlash || false,
+    categoryId: data.categoryId,
+    authorId,
+    publishedAt: new Date(),
+  });
+}
 
   /**
    * Обновить новость
    */
-  async update(id: number, data: UpdateNewsInput, userId: number) {
+async function update(id: number, data: UpdateNewsInput, userId: number) {
     // Проверяем существование и права доступа
-    const existing = await db
-      .selectFrom('news')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst();
+    const existing = await newsRepository.findById(id);
 
     if (!existing) {
       throw new Error('Новость не найдена');
@@ -468,24 +392,15 @@ export class NewsService {
     if (data.isFlash !== undefined) updateData.isFlash = data.isFlash;
     if (data.categoryId) updateData.categoryId = data.categoryId;
 
-    return await db
-      .updateTable('news')
-      .set(updateData as any)
-      .where('id', '=', id)
-      .returningAll()
-      .executeTakeFirstOrThrow();
-  }
+  return await newsRepository.update(id, updateData);
+}
 
   /**
    * Удалить новость
    */
-  async delete(id: number, userId: number): Promise<void> {
+async function remove(id: number, userId: number): Promise<void> {
     // Проверяем существование и права доступа
-    const existing = await db
-      .selectFrom('news')
-      .selectAll()
-      .where('id', '=', id)
-      .executeTakeFirst();
+    const existing = await newsRepository.findById(id);
 
     if (!existing) {
       throw new Error('Новость не найдена');
@@ -495,11 +410,15 @@ export class NewsService {
       throw new Error('Нет доступа к этой новости');
     }
 
-    await db
-      .deleteFrom('news')
-      .where('id', '=', id)
-      .execute();
-  }
+  await newsRepository.delete(id);
 }
 
-export const newsService = new NewsService();
+export const newsService = {
+  getList,
+  getByCategorySlug,
+  search,
+  getById,
+  create,
+  update,
+  delete: remove,
+};

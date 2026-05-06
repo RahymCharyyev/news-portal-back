@@ -1,7 +1,7 @@
-import { db } from '../config/database';
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { RegisterInput, LoginInput } from '../types/schemas';
+import { usersRepository } from '../repositories/users.repository';
 
 export interface UserResponse {
   id: number;
@@ -16,20 +16,9 @@ export interface AuthResponse {
   token: string;
 }
 
-/**
- * Сервис для работы с авторизацией
- */
-export class AuthService {
-  /**
-   * Регистрация нового пользователя
-   */
-  async register(data: RegisterInput): Promise<AuthResponse> {
+async function register(data: RegisterInput): Promise<AuthResponse> {
     // Проверяем, не существует ли уже пользователь с таким email
-    const existingUser = await db
-      .selectFrom('users')
-      .select(['id'])
-      .where('email', '=', data.email)
-      .executeTakeFirst();
+    const existingUser = await usersRepository.findIdByEmail(data.email);
 
     if (existingUser) {
       throw new Error('Пользователь с таким email уже существует');
@@ -39,20 +28,16 @@ export class AuthService {
     const hashedPassword = await hashPassword(data.password);
 
     // Создаем пользователя
-    const user = await db
-      .insertInto('users')
-      .values({
-        email: data.email,
-        password: hashedPassword,
-        name: data.name,
-        role: 'user',
-        isBlocked: false,
-      })
-      .returning(['id', 'email', 'name', 'role', 'isBlocked', 'createdAt'])
-      .executeTakeFirstOrThrow();
+    const user = await usersRepository.create({
+      email: data.email,
+      password: hashedPassword,
+      name: data.name,
+      role: 'user',
+      isBlocked: false,
+    });
 
     // Создаем JWT токен
-    const token = generateToken(user.id);
+    const token = generateToken(user.id, user.role as 'admin' | 'user');
 
     return {
       user: {
@@ -64,18 +49,14 @@ export class AuthService {
       },
       token,
     };
-  }
+}
 
   /**
    * Вход пользователя
    */
-  async login(data: LoginInput): Promise<AuthResponse> {
+async function login(data: LoginInput): Promise<AuthResponse> {
     // Ищем пользователя по email
-    const user = await db
-      .selectFrom('users')
-      .selectAll()
-      .where('email', '=', data.email)
-      .executeTakeFirst();
+    const user = await usersRepository.findByEmail(data.email);
 
     if (!user) {
       throw new Error('Неверный email или пароль');
@@ -93,7 +74,7 @@ export class AuthService {
     }
 
     // Создаем JWT токен
-    const token = generateToken(user.id);
+    const token = generateToken(user.id, user.role as 'admin' | 'user');
 
     return {
       user: {
@@ -105,17 +86,13 @@ export class AuthService {
       },
       token,
     };
-  }
+}
 
   /**
    * Получить пользователя по ID
    */
-  async getUserById(userId: number): Promise<UserResponse | null> {
-    const user = await db
-      .selectFrom('users')
-      .select(['id', 'email', 'name', 'role', 'isBlocked'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
+async function getUserById(userId: number): Promise<UserResponse | null> {
+    const user = await usersRepository.findPublicById(userId);
 
     if (!user) {
       return null;
@@ -128,7 +105,10 @@ export class AuthService {
       role: user.role as 'admin' | 'user',
       isBlocked: user.isBlocked,
     };
-  }
 }
 
-export const authService = new AuthService();
+export const authService = {
+  register,
+  login,
+  getUserById,
+};
