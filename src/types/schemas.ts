@@ -31,13 +31,12 @@ export const createNewsSchema = z.object({
   categoryId: z.number().int().positive('ID категории должен быть положительным числом'),
   authorId: z.number().int().positive('ID автора должен быть положительным числом').optional(),
 }).superRefine((data, ctx) => {
-  const hasRu = Boolean(data.titleRu && data.contentRu);
-  const hasTm = Boolean(data.titleTm && data.contentTm);
-  const hasEn = Boolean(data.titleEn && data.contentEn);
-  if (!hasRu && !hasTm && !hasEn) {
+  const hasAnyTitle = Boolean(data.titleRu || data.titleTm || data.titleEn);
+  const hasAnyContent = Boolean(data.contentRu || data.contentTm || data.contentEn);
+  if (!hasAnyTitle || !hasAnyContent) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'Заполните заголовок и содержание хотя бы на одном языке',
+      message: 'Заполните хотя бы один заголовок и хотя бы одно содержание',
       path: ['titleRu'],
     });
   }
